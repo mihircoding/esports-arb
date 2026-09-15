@@ -1,0 +1,12 @@
+[
+  {
+    "game": "rl",
+    "team_a": "Virtus.pro",
+    "team_b": "Bigodes",
+    "start": "2026-09-15T16:00:00Z",
+    "books": [
+      {"name": "draftkings", "a": {"american": -180}, "b": {"american": 145}, "max_payout": 300},
+      {"name": "fanduel",    "a": {"decimal": 1.55},  "b": {"decimal": 2.40},  "max_payout": 300}
+    ]
+  }
+]

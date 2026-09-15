@@ -5,3 +5,6 @@ __pycache__/
 *.egg-info/
 .env
 data/record.log
+docs/best_pairs.csv
+data/snapshots.csv
+data/scan_sample.json

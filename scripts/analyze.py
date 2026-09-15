@@ -156,10 +156,12 @@ def main():
         return
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
     ax = axes[0]
-    ax.hist(pairs.gross_edge * 100, bins=40, alpha=0.55, label="gross (before fees)", color="#4C72B0")
-    ax.hist(pairs.net_edge * 100, bins=40, alpha=0.55, label="net (after fees)", color="#DD8452")
+    bins = np.arange(-15, 6.5, 0.5)
+    clip = lambda s: np.clip(s * 100, -15, 6)  # tails piled into the edge bins
+    ax.hist(clip(pairs.gross_edge), bins=bins, alpha=0.55, label="gross (before fees)", color="#4C72B0")
+    ax.hist(clip(pairs.net_edge), bins=bins, alpha=0.55, label="net (after fees)", color="#DD8452")
     ax.axvline(0, color="black", lw=1)
-    ax.set_xlabel("edge per $1 payout (%)")
+    ax.set_xlabel("edge per $1 payout (%), clipped to [-15, 6]")
     ax.set_ylabel("match-snapshots")
     ax.set_title("Best cross-venue pair: 1 - (ask A + ask B)")
     ax.legend(frameon=False)

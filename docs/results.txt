@@ -1,0 +1,12 @@
+snapshots: 45 over 44 min | quotes: 23347 | linked matches: 87
+match-snapshots: 3878
+gross arb (sum of asks < 1): 12.9%
+net arb (after taker fees):  2.8%
+net edge percentiles (bp): p5=-2775, p25=-551, p50=-378, p75=-252, p95=-32, p99=348
+when net-positive: median edge 102bp, median top-of-book size 1 contracts, median $ profit at top 0.01
+net-positive by game: cs2=6, rl=1
+leg combos: kalshi/NO + polymarket/YES=61, kalshi/YES + polymarket/YES=45, polymarket/YES + kalshi/YES=3
+arb persistence (snapshots): mean 10.9, median 3, max 45
+basis Kalshi-Polymarket (de-vigged P(team a)): mean -0.55pp, mean |basis| 1.89pp, p95 |basis| 7.73pp
+median overround: kalshi 3.00% | polymarket 2.00%
+basis AR(1) phi=0.957 -> half-life 15.7 snapshots

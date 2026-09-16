@@ -72,14 +72,22 @@ esports_arb/
 ├── fees.py / odds.py   fee schedules; odds conversion; multiplicative & Shin de-vig
 ├── arb.py              top-of-book edge, depth walk, exact fees, cancelled-match P&L
 ├── scanner.py          fetch → cluster → cheap screen → load depth → evaluate all leg pairs
-└── cli.py              scan / near-misses / record
+├── cli.py              scan / near-misses / record / mm-data / mm-backtest / mm-paper / mm-live
+└── mm/                 market making on Kalshi
+    ├── quoting.py      fair-value blend, inventory skew, post-only clamp (shared by backtest + live)
+    ├── book.py         positions, settlement, capture-vs-drift P&L decomposition
+    ├── data.py         settled-match dataset: Kalshi trade tape + candles, Polymarket history
+    ├── backtest.py     event-driven replay with trade-through fill model
+    ├── kalshi_client.py  RSA-PSS signed Kalshi API (orders, fills, positions)
+    └── live.py         paper/live loop with exposure caps, max-loss halt, STOP kill switch
 scripts/analyze.py      research on recorded snapshots (edge distribution, basis, AR(1) half-life)
+scripts/mm_research.py  walk-forward MM parameter search, out-of-sample test, robustness
 ```
 
 ## Quick start
 
 ```bash
-pip install -r requirements.txt            # just `requests`
+pip install -r requirements.txt            # requests (+ cryptography for live Kalshi trading)
 python -m esports_arb scan                  # all games, Kalshi + Polymarket (+ books if key set)
 python -m esports_arb scan -g lol,r6,rl,ow --min-edge 0.005 --bankroll 250 --json arbs.json
 python -m esports_arb near-misses --limit 20   # closest cross-venue pairs, even if edge < 0
@@ -156,14 +164,44 @@ What this says:
    natural next step for this project.
 
 
+## Part 2: market making (where the durable edge is)
+
+Taking both sides of an arb earns cents. Quoting passively can earn more. The
+`mm/` package **makes markets on Kalshi**, where esports series have no maker
+fee, around a fair value that blends Polymarket's and Kalshi's mids. It skews
+quotes against inventory and stops quoting 2 hours before each match.
+
+![market making backtest](docs/mm_backtest.png)
+
+The backtest used 1,177 settled matches, replayed against Kalshi's real trade
+tape. Settings were chosen on the first half of the matches and tested on the
+second:
+
+| Out-of-sample (589 matches) | |
+|---|---|
+| P&L, 5-lot quotes | **+$70.11** (t = 1.12) |
+| Per contract | +2.8c (spread capture +8.5c, adverse selection −5.7c) |
+| Same settings, Kalshi-mid only | +$31.63 |
+| Quoting in the last 2h before a match | **−6.2c per contract** (informed flow) |
+
+The edge is positive but not statistically significant, and it is sensitive
+to latency. Full method, tables and caveats are in
+**[docs/MARKET_MAKING.md](docs/MARKET_MAKING.md)**.
+
+```bash
+python -m esports_arb mm-data --days 21                  # build the dataset (~20 min)
+python scripts/mm_research.py data/mm/dataset.json.gz     # walk-forward research
+python -m esports_arb -v mm-paper --minutes 120           # paper-trade on live books
+python -m esports_arb -v mm-live --confirm-live ...       # your own Kalshi API key; see docs
+```
+
 ## Limitations and next steps
 
 * Polling REST, not streaming. The next step is Kalshi and Polymarket
   WebSockets, which would cut latency and make persistence measurements much
   finer-grained.
-* Only taker-taker trades are modeled. Posting a maker order on the thin venue
-  (Polymarket pays makers a rebate) and taking on the other would capture far
-  more of the observed dislocations.
+* The arb scanner models taker-taker trades only. The market maker (part 2)
+  quotes on one venue, and does not yet hedge fills on a second venue.
 * Match-winner markets only. Map/game winners and totals need a careful
   mapping between best-of formats.
 * Sportsbook sizes are assumed (`--book-limit`), because books don't publish

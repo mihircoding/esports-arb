@@ -5,6 +5,12 @@
     python -m esports_arb scan --cross-only --json out.json
     python -m esports_arb record --interval 60 --iterations 30 --out data/snapshots.csv
     python -m esports_arb near-misses                # closest-to-arb pairs right now
+
+  market making (Kalshi maker, Polymarket fair value):
+    python -m esports_arb mm-data --days 21 --out data/mm/dataset.json.gz
+    python -m esports_arb mm-backtest --data data/mm/dataset.json.gz
+    python -m esports_arb mm-paper -g cs2,lol --minutes 60
+    python -m esports_arb mm-live -g cs2 --max-exposure 20 --max-loss 10 --confirm-live
 """
 from __future__ import annotations
 
@@ -100,6 +106,45 @@ def cmd_record(args):
             time.sleep(max(0, args.interval - (time.time() - t0)))
 
 
+def _mm_params(args):
+    from .mm.quoting import QuoteParams
+    return QuoteParams(half_spread=args.half_spread, size=args.size, max_exposure=args.max_exposure,
+                       skew=args.skew, ref_weight=args.ref_weight, stop_before_min=args.stop_before,
+                       start_hours=args.start_hours)
+
+
+def cmd_mm_data(args):
+    from .mm.data import build
+    d = build(_games(args.games), days=args.days, hours=args.start_hours, out=args.out)
+    print(f"saved {len(d)} matches -> {args.out}")
+
+
+def cmd_mm_backtest(args):
+    from .mm.backtest import brier, run, summarize
+    from .mm.data import load
+    data = load(args.data)
+    res = run(data, _mm_params(args))
+    for k, v in summarize(res).items():
+        print(f"{k:24s} {v:,.4f}" if isinstance(v, float) else f"{k:24s} {v}")
+    print("brier (5 min pre-match):", brier(data))
+
+
+def cmd_mm_run(args, live: bool):
+    from .mm.live import Engine, KalshiBroker, PaperBroker
+    if live:
+        if not args.confirm_live:
+            raise SystemExit("refusing to trade real money without --confirm-live")
+        from .mm.kalshi_client import KalshiClient
+        client = KalshiClient()
+        print(f"LIVE on Kalshi. balance ${client.balance():.2f}. Ctrl-C or create ./STOP to halt.")
+        broker = KalshiBroker(client)
+    else:
+        broker = PaperBroker()
+    eng = Engine(broker, _mm_params(args), _games(args.games), max_total_exposure=args.max_total,
+                 max_loss=args.max_loss, interval=args.interval, log_path=args.log)
+    print(json.dumps(eng.run(args.minutes), indent=2))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="esports_arb", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -131,6 +176,39 @@ def main(argv=None):
     r.add_argument("--iterations", type=int, default=10)
     r.add_argument("--out", default="data/snapshots.csv")
     r.set_defaults(func=cmd_record)
+
+    def mm_common(sp, games="cs2,lol,val,dota2,r6,rl,ow"):
+        sp.add_argument("-g", "--games", default=games)
+        sp.add_argument("--half-spread", type=float, default=0.08)
+        sp.add_argument("--size", type=int, default=5)
+        sp.add_argument("--max-exposure", type=int, default=25, help="contracts per event")
+        sp.add_argument("--skew", type=float, default=0.0004)
+        sp.add_argument("--ref-weight", type=float, default=0.5, help="1 = Polymarket fair value only, 0 = Kalshi mid only")
+        sp.add_argument("--stop-before", type=float, default=120.0, help="stop quoting N minutes before start")
+        sp.add_argument("--start-hours", type=float, default=12.0)
+
+    d = sub.add_parser("mm-data", help="download settled matches for the MM backtest")
+    mm_common(d)
+    d.add_argument("--days", type=float, default=21)
+    d.add_argument("--out", default="data/mm/dataset.json.gz")
+    d.set_defaults(func=cmd_mm_data)
+
+    b = sub.add_parser("mm-backtest", help="backtest the market maker on a dataset")
+    mm_common(b)
+    b.add_argument("--data", default="data/mm/dataset.json.gz")
+    b.set_defaults(func=cmd_mm_backtest)
+
+    for name, live in (("mm-paper", False), ("mm-live", True)):
+        r2 = sub.add_parser(name, help=("REAL-MONEY" if live else "paper") + " market making on Kalshi")
+        mm_common(r2, games="cs2,lol,val,dota2,r6,rl,ow")
+        r2.add_argument("--minutes", type=float, default=60)
+        r2.add_argument("--interval", type=float, default=20, help="seconds between requotes")
+        r2.add_argument("--max-total", type=float, default=100, help="total |exposure| cap, contracts")
+        r2.add_argument("--max-loss", type=float, default=25, help="halt if marked P&L < -this ($)")
+        r2.add_argument("--log", default=f"data/mm/{name}.jsonl")
+        if live:
+            r2.add_argument("--confirm-live", action="store_true")
+        r2.set_defaults(func=(lambda a, _l=live: cmd_mm_run(a, _l)))
 
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,

@@ -1,0 +1,43 @@
+dataset: 1177 settled matches on Kalshi+Polymarket (cs2=700, dota2=104, lol=178, ow=6, r6=95, rl=6, val=88)
+train: 588 | test: 589 (chronological split)
+
+Brier score 5 min before start (lower = better), n=1154: Polymarket 0.1902 vs Kalshi mid 0.1896
+
+TRAIN grid (top 8 by P&L):
+  h=0.08 w=0.5 stop=120m | matches  588 traded  119 | P&L $   83.40 | mean $ 0.142 t= 1.63 | contracts     1310 | $0.0636/ct | capture $ 111.91 drift $ -28.51
+  h=0.12 w=1.0 stop=  5m | matches  588 traded  115 | P&L $   82.85 | mean $ 0.141 t= 1.47 | contracts     1928 | $0.0430/ct | capture $ 250.33 drift $-167.49
+  h=0.08 w=1.0 stop=120m | matches  588 traded  114 | P&L $   81.18 | mean $ 0.138 t= 1.61 | contracts     1321 | $0.0614/ct | capture $ 127.45 drift $ -46.28
+  h=0.05 w=0.5 stop=120m | matches  588 traded  160 | P&L $   79.30 | mean $ 0.135 t= 1.22 | contracts     2297 | $0.0345/ct | capture $ 129.09 drift $ -49.79
+  h=0.08 w=0.5 stop=  5m | matches  588 traded  168 | P&L $   78.91 | mean $ 0.134 t= 1.15 | contracts     3718 | $0.0212/ct | capture $ 315.62 drift $-236.71
+  h=0.08 w=1.0 stop= 30m | matches  588 traded  145 | P&L $   72.99 | mean $ 0.124 t= 1.17 | contracts     2723 | $0.0268/ct | capture $ 247.27 drift $-174.28
+  h=0.08 w=0.5 stop= 30m | matches  588 traded  145 | P&L $   71.84 | mean $ 0.122 t= 1.20 | contracts     2673 | $0.0269/ct | capture $ 227.01 drift $-155.17
+  h=0.12 w=1.0 stop= 30m | matches  588 traded  100 | P&L $   63.74 | mean $ 0.108 t= 1.37 | contracts     1404 | $0.0454/ct | capture $ 183.75 drift $-120.01
+
+TEST (out-of-sample) with chosen h=0.08 w=0.5 stop=120m:
+  chosen          | matches  589 traded  192 | P&L $   70.11 | mean $ 0.119 t= 1.12 | contracts     2501 | $0.0280/ct | capture $ 211.71 drift $-141.60
+  same, w=0.0    | matches  589 traded  202 | P&L $   31.63 | mean $ 0.054 t= 0.57 | contracts     2616 | $0.0121/ct | capture $ 220.56 drift $-188.93
+  same, w=1.0    | matches  589 traded  189 | P&L $   29.80 | mean $ 0.051 t= 0.48 | contracts     2419 | $0.0123/ct | capture $ 207.61 drift $-177.81
+
+TEST by game (chosen config):
+  cs2    matches  355 traded  118 | P&L $   29.67 | mean $ 0.084 t= 0.59 | contracts     1544 | $0.0192/ct | capture $ 131.23 drift $-101.55
+  dota2  matches   48 traded   12 | P&L $   -4.56 | mean $-0.095 t=-0.39 | contracts      111 | $-0.0412/ct | capture $   9.24 drift $ -13.80
+  lol    matches   66 traded   17 | P&L $  -11.43 | mean $-0.173 t=-0.94 | contracts      168 | $-0.0681/ct | capture $  13.99 drift $ -25.42
+  ow     matches    6 traded    5 | P&L $   12.72 | mean $ 2.120 t= 1.83 | contracts      131 | $0.0971/ct | capture $  11.18 drift $   1.53
+  r6     matches   78 traded   30 | P&L $   36.77 | mean $ 0.471 t= 1.18 | contracts      438 | $0.0839/ct | capture $  36.98 drift $  -0.21
+  rl     matches    6 traded    4 | P&L $   -1.13 | mean $-0.188 t=-0.34 | contracts       66 | $-0.0171/ct | capture $   5.53 drift $  -6.66
+  val    matches   30 traded    6 | P&L $    8.06 | mean $ 0.269 t= 1.48 | contracts       43 | $0.1874/ct | capture $   3.56 drift $   4.50
+
+Adverse selection by time to start (TEST, chosen config but quoting until 5 min before, per contract):
+       0-30 min before |    956 contracts | capture +0.0849 | drift -0.1028 | net -0.0179
+     30-120 min before |   1437 contracts | capture +0.0840 | drift -0.1461 | net -0.0621
+    120-360 min before |   1429 contracts | capture +0.0844 | drift -0.0570 | net +0.0275
+    360-720 min before |   1072 contracts | capture +0.0850 | drift -0.0562 | net +0.0288
+
+Robustness on TEST (chosen config):
+  queue_frac=0.0  latency=60s | matches  589 traded  184 | P&L $   67.15 | mean $ 0.114 t= 1.10 | contracts     2298 | $0.0292/ct | capture $ 194.74 drift $-127.60
+  queue_frac=0.1  latency=60s | matches  589 traded  188 | P&L $   66.64 | mean $ 0.113 t= 1.08 | contracts     2428 | $0.0274/ct | capture $ 205.50 drift $-138.86
+  queue_frac=0.25 latency=60s | matches  589 traded  192 | P&L $   70.11 | mean $ 0.119 t= 1.12 | contracts     2501 | $0.0280/ct | capture $ 211.71 drift $-141.60
+  queue_frac=0.5  latency=60s | matches  589 traded  195 | P&L $   64.56 | mean $ 0.110 t= 1.02 | contracts     2563 | $0.0252/ct | capture $ 217.07 drift $-152.51
+  queue_frac=0.25 latency=180s | matches  589 traded  195 | P&L $   44.73 | mean $ 0.076 t= 0.67 | contracts     2702 | $0.0166/ct | capture $ 228.92 drift $-184.19
+  queue_frac=0.25 latency=600s | matches  589 traded  208 | P&L $    5.75 | mean $ 0.010 t= 0.08 | contracts     2864 | $0.0020/ct | capture $ 243.72 drift $-237.98
+  if Kalshi added its 1.75% maker fee | matches  589 traded  192 | P&L $   55.18 | mean $ 0.094 t= 0.89 | contracts     2501 | $0.0221/ct | capture $ 211.71 drift $-141.60

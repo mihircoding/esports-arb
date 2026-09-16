@@ -8,12 +8,12 @@ version = "0.1.0"
 description = "Fee-aware, depth-aware arbitrage scanner for esports match markets on Kalshi, Polymarket and sportsbooks"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = ["requests>=2.28", "cryptography>=41", "websockets>=13"]
+dependencies = ["requests>=2.28", "cryptography>=41", "websockets>=13", "numpy>=1.24", "scipy>=1.10"]
 license = {text = "MIT"}
 authors = [{name = "Mihir Konda"}]
 
 [project.optional-dependencies]
-research = ["pandas>=2", "numpy>=1.24", "matplotlib>=3.7"]
+research = ["pandas>=2", "matplotlib>=3.7", "scikit-learn>=1.3"]
 dev = ["pytest>=7"]
 
 [project.scripts]

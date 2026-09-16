@@ -11,3 +11,4 @@ data/scan_sample.json
 data/mm/*.log
 data/mm/*.jsonl
 data/stream/*.log
+data/series/*.log

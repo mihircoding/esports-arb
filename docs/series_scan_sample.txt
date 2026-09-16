@@ -1,0 +1,36 @@
+132 best-of-N matches (63 on both venues), 2309 contract quotes, 3 arbitrage baskets
+
+#1 [dota2 BO3] Zero Tenacity vs Dawn Bulls (Sep 20 15:00Z)
+    cost per $1 guaranteed: 0.9337 | payout $1500 | cost $1407.57 (fees $30.50) | profit $92.43 | ROI 6.57%
+      buy   500.00 x PM Dawn Bulls wins map 1                 best 0.520 avg 0.520  (weight 0.33)
+      buy   500.00 x PM Dawn Bulls wins map 2                 best 0.650 avg 0.664  (weight 0.33)
+      buy   500.00 x PM under 2.5 maps                        best 0.550 avg 0.550  (weight 0.33)
+      buy  1000.00 x PM Zero Tenacity +1.5                    best 0.510 avg 0.510  (weight 0.67)
+    payout across map sequences: $1500.00 – $1500.00 | if cancelled: $1250.00
+    ! if the match is cancelled the basket returns $1250.00 (< cost $1407.57)
+#2 [rl BO5] Ninjas in Pyjamas vs FURIA Esports (Sep 16 16:00Z) LIVE — prices move every round
+    cost per $1 guaranteed: 0.9917 | payout $10 | cost $9.92 (fees $0.01) | profit $0.08 | ROI 0.80%
+      buy    10.00 x PM Ninjas in Pyjamas wins                best 0.001 avg 0.001  (weight 1.00)
+      buy    10.00 x K YES FURIA Esports wins                 best 0.990 avg 0.990  (weight 1.00)
+    payout across map sequences: $10.00 – $10.00
+    ! some legs settle a cancelled match at 'fair value' (Kalshi) — void P&L unknown
+    ! legs on two venues — fill the thinner leg first
+#3 [cs2 BO3] Vitality vs magic (Sep 17 12:30Z)
+    cost per $1 guaranteed: 0.9998 | payout $165 | cost $164.98 (fees $2.73) | profit $0.02 | ROI 0.01%
+      buy    55.00 x PM Vitality wins map 1                   best 0.810 avg 0.810  (weight 0.33)
+      buy    55.00 x PM under 2.5 maps                        best 0.740 avg 0.740  (weight 0.33)
+      buy   110.00 x PM magic +1.5                            best 0.300 avg 0.300  (weight 0.67)
+      buy    55.00 x K YES Vitality wins map 2                best 0.800 avg 0.800  (weight 0.33)
+    payout across map sequences: $165.00 – $165.00
+    ! some legs settle a cancelled match at 'fair value' (Kalshi) — void P&L unknown
+    ! legs on two venues — fill the thinner leg first
+
+closest to arbitrage (LP cost of a guaranteed $1, after fees):
+  0.9337  [dota2 BO3] Zero Tenacity vs Dawn Bulls (polymarket, 10 quotes) | match - indep. model +2.2pp
+  0.9917  [rl BO5] Ninjas in Pyjamas vs FURIA Esports (kalshi+polymarket, 10 quotes) | kalshi-only 1.1181
+  0.9943  [lol BO5] 9z Globant vs Fuego (kalshi+polymarket, 38 quotes) | kalshi-only 1.0224 | polymarket-only 0.9969 | match - indep. model +7.4pp
+  0.9998  [cs2 BO3] Vitality vs magic (kalshi+polymarket, 24 quotes) | kalshi-only 1.0015 | polymarket-only 1.0052 | match - indep. model -0.5pp
+  1.0029  [lol BO5] Pyramid IV Esports vs JSK Esports (kalshi+polymarket, 27 quotes) | kalshi-only 1.0893 | polymarket-only 1.0029 | match - indep. model +17.5pp
+  1.0037  [val BO3] FENNEL Female vs Team Falcons VEGA (kalshi+polymarket, 24 quotes) | kalshi-only 1.2215 | polymarket-only 1.0873 | match - indep. model -22.6pp
+  1.0067  [cs2 BO3] Lavked vs Honvéd (kalshi+polymarket, 14 quotes) | kalshi-only 1.1006 | polymarket-only 1.0067
+  1.0074  [cs2 BO3] MOUZ vs NRG (kalshi+polymarket, 24 quotes) | kalshi-only 1.0274 | polymarket-only 1.0074 | match - indep. model -0.0pp

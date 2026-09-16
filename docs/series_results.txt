@@ -1,0 +1,24 @@
+2273 settled BO3s (cs2=1391, dota2=237, lol=387, val=258), exact-0.50 prices dropped, prices 30 min before start; train = first 1136, test = last 1137 (chronological)
+
+1) Identity Over + 2*H_A = W1 + W2 at pre-match prices (n=1344):
+   residual median +0.50pp | mean |r| 9.86pp | |r| > 3pp: 56.1% | > 6pp: 33.0%
+   bound H_A <= M violated: 4.1% | M <= H_A + Over violated: 3.2%   (at mid prices; not net of spread/fees)
+   identity basket after 1c half-spread + fees: profitable in 24.1% of matches, mean when profitable 21.53c per basket
+
+2) Are maps independent?
+   realised 2-0 rate 0.598 vs independent-maps prediction 0.547 vs market (1 - Over) 0.583
+   P(map2 = map1 winner) realised 0.591
+
+3) Brier scores (lower is better) — market price vs estimate from the other markets:
+   match winner                         market 0.1942 | other-markets estimate 0.2019 | n=1964
+   over 2.5 maps (indep.)               market 0.2396 | other-markets estimate 0.2389 | n=1768
+   over 2.5 maps (identity W1+W2-2H)    market 0.2373 | other-markets estimate 0.2693 | n=1344
+   A wins 2-0                           market 0.1994 | other-markets estimate 0.1922 | n=1394
+
+4) Walk-forward bets (1 share each, cost = price + 1c + fee):
+  match winner  vs indep. maps       coef own=+1.22 other=-0.16 | REJECTED: no threshold is profitable in cross-validation on the training half -> not traded on test
+  over 2.5     vs indep. maps        coef own=-0.11 other=+1.34 | thr 0.08 (CV train P&L +17.0) | TEST 208 bets, P&L +11.62, +5.59c/bet, t=1.71
+  over 2.5     vs indep. maps        EXECUTABLE (real taker prints): 6 bets filled, 202 never tradable, 0 no trade data | P&L +0.58, +9.59c/bet, t=0.43
+  over 2.5     vs identity           coef own=+1.00 other=+0.01 | REJECTED: no threshold is profitable in cross-validation on the training half -> not traded on test
+  A 2-0        vs W1*W2              coef own=+0.01 other=+0.91 | thr 0.12 (CV train P&L +16.6) | TEST 107 bets, P&L +24.19, +22.60c/bet, t=5.13
+  A 2-0        vs W1*W2              EXECUTABLE (real taker prints): 8 bets filled, 99 never tradable, 0 no trade data | P&L +2.88, +36.02c/bet, t=2.41

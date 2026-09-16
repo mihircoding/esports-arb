@@ -5,6 +5,7 @@
     python -m esports_arb scan --cross-only --json out.json
     python -m esports_arb record --interval 60 --iterations 30 --out data/snapshots.csv
     python -m esports_arb near-misses                # closest-to-arb pairs right now
+    python -m esports_arb series-scan                # match/map/handicap/totals consistency (LP)
     python -m esports_arb stream --minutes 30 --out data/stream/episodes.jsonl   # websockets
 
   market making (Kalshi maker, Polymarket fair value):
@@ -107,6 +108,29 @@ def cmd_record(args):
             time.sleep(max(0, args.interval - (time.time() - t0)))
 
 
+def cmd_series(args):
+    from .series.scan import format_results, scan as series_scan
+    res = series_scan(_games(args.games), min_edge=args.min_edge, max_cost=args.bankroll or math.inf)
+    print(format_results(res, near=args.near))
+
+
+def cmd_series_data(args):
+    from .series.history import build
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    from .series.history import enrich_trades, load
+    import gzip
+    games = _games(args.games)
+    if args.trades_only and os.path.exists(args.out):
+        d = load(args.out)
+    else:
+        d = build(games, days=args.days, minutes_before=args.minutes_before, out=args.out)
+    if not args.no_trades:
+        enrich_trades(d, games, args.days)
+        with gzip.open(args.out, "wt") as fh:
+            json.dump(d, fh)
+    print(f"saved {len(d)} settled BO3s -> {args.out}")
+
+
 def cmd_stream(args):
     import asyncio
     from .streaming.hub import StreamHub, kalshi_signer_from_env
@@ -203,6 +227,22 @@ def main(argv=None):
         sp.add_argument("--ref-weight", type=float, default=0.5, help="1 = Polymarket fair value only, 0 = Kalshi mid only")
         sp.add_argument("--stop-before", type=float, default=120.0, help="stop quoting N minutes before start")
         sp.add_argument("--start-hours", type=float, default=12.0)
+
+    se = sub.add_parser("series-scan", help="match vs map vs handicap vs totals arbitrage (LP)")
+    se.add_argument("-g", "--games", default="cs2,lol,val,dota2,r6,rl,cod")
+    se.add_argument("--min-edge", type=float, default=0.0)
+    se.add_argument("--bankroll", type=float, default=0.0)
+    se.add_argument("--near", type=int, default=15, help="also list the N closest non-arbs")
+    se.set_defaults(func=cmd_series)
+
+    sd = sub.add_parser("series-data", help="download settled BO3s for the series study (Polymarket)")
+    sd.add_argument("-g", "--games", default="cs2,lol,val,dota2")
+    sd.add_argument("--days", type=float, default=45)
+    sd.add_argument("--minutes-before", type=float, default=30)
+    sd.add_argument("--out", default="data/series/history.json.gz")
+    sd.add_argument("--no-trades", action="store_true", help="skip public trade download (execution check)")
+    sd.add_argument("--trades-only", action="store_true", help="only add trades to an existing file")
+    sd.set_defaults(func=cmd_series_data)
 
     st = sub.add_parser("stream", help="real-time arb detection over websockets; logs arb episodes")
     st.add_argument("-g", "--games", default=",".join(DEFAULT_GAMES))

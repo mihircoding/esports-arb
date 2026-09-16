@@ -89,6 +89,7 @@ esports_arb/
     └── live.py         paper/live loop with exposure caps, max-loss halt, STOP kill switch
 scripts/analyze.py      research on recorded snapshots (edge distribution, basis, AR(1) half-life)
 scripts/mm_research.py  walk-forward MM parameter search, out-of-sample test, robustness
+scripts/series_research.py consistency, correlation, calibration, walk-forward + executable-fill test
 scripts/stream_analyze.py  arb-episode persistence (Kaplan–Meier), who opens/closes each arb
 scripts/validate_stream.py checks streamed books against REST snapshots
 ```
@@ -229,6 +230,37 @@ The book checks, method and caveats are in
 **[docs/STREAMING.md](docs/STREAMING.md)**. The market maker can use the
 same feed (`mm-paper --stream`) to requote whenever a book moves.
 
+## Part 4: series-format consistency (match vs maps vs handicap vs totals)
+
+A best-of-3 can end only six ways, so each match, map, handicap and totals
+contract is a payoff vector over those six outcomes. `series-scan` solves a
+linear program for the **cheapest basket across both venues that pays at
+least $1 however the series goes**. Any basket costing under $1 after fees
+is an arbitrage.
+
+![series study](docs/series_study.png)
+
+- **Live (2026-09-16):** across 132 matches, it found a Polymarket-only
+  Dota 2 basket (games 1 & 2, under 2.5, +1.5 handicap) that pays exactly
+  $1,500 in every outcome for $1,407.57, a profit of **+$92 (6.6%)**.
+- **History (2,273 settled BO3s):**
+  - **Maps are correlated:** 2-0 results happened 59.8% of the time, versus
+    54.7% if maps were independent.
+  - **The handicap market adds almost nothing:** it predicts worse than
+    simply multiplying the two map prices.
+  - **Betting that mispricing:** +22.6¢ per bet out of sample (t = 5.1) at
+    midpoint prices. But only 8 of 107 signals could actually have been
+    filled, because those books are mostly empty.
+- **So:** for the handicap and totals mispricing, post limit orders rather
+  than taking. Scan for true arbitrage baskets with the LP.
+
+Details: **[docs/SERIES.md](docs/SERIES.md)**.
+
+```bash
+python -m esports_arb series-scan
+python -m esports_arb series-data --days 45 && python scripts/series_research.py data/series/history.json.gz
+```
+
 ## Limitations and next steps
 
 * Kalshi's websocket needs an API key. Without one, the stream polls Kalshi's
@@ -236,8 +268,9 @@ same feed (`mm-paper --stream`) to requote whenever a book moves.
   poll (see [docs/STREAMING.md](docs/STREAMING.md)).
 * The arb scanner models taker-taker trades only. The market maker (part 2)
   quotes on one venue, and does not yet hedge fills on a second venue.
-* Match-winner markets only. Map/game winners and totals need a careful
-  mapping between best-of formats.
+* The arb scanner and market maker trade match-winner markets only. Map,
+  handicap and totals markets are covered by `series-scan` (Part 4), which
+  doesn't execute trades.
 * Sportsbook sizes are assumed (`--book-limit`), because books don't publish
   depth. The OddsPapi connector is covered by unit tests on recorded payloads
   but needs your own key to run live.

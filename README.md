@@ -72,7 +72,14 @@ esports_arb/
 ├── fees.py / odds.py   fee schedules; odds conversion; multiplicative & Shin de-vig
 ├── arb.py              top-of-book edge, depth walk, exact fees, cancelled-match P&L
 ├── scanner.py          fetch → cluster → cheap screen → load depth → evaluate all leg pairs
-├── cli.py              scan / near-misses / record / mm-data / mm-backtest / mm-paper / mm-live
+├── cli.py              scan / near-misses / record / stream / mm-data / mm-backtest / mm-paper / mm-live
+├── streaming/          real-time market data
+│   ├── books.py        L2 books from snapshots + incremental updates (Kalshi YES/NO bids, Polymarket levels)
+│   ├── polymarket_ws.py  public CLOB websocket: subscribe, PING keepalive, reconnect + resubscribe
+│   ├── kalshi_ws.py    authenticated websocket: orderbook_delta + trades, seq-gap detection -> resync
+│   ├── kalshi_poll.py  no-key fallback: batched top-of-book polling (≈100 markets per request)
+│   ├── hub.py          re-evaluates only the match whose book changed; logs arb episodes (ms)
+│   └── feed.py         background-thread feed that drives the market maker event by event
 └── mm/                 market making on Kalshi
     ├── quoting.py      fair-value blend, inventory skew, post-only clamp (shared by backtest + live)
     ├── book.py         positions, settlement, capture-vs-drift P&L decomposition
@@ -82,6 +89,8 @@ esports_arb/
     └── live.py         paper/live loop with exposure caps, max-loss halt, STOP kill switch
 scripts/analyze.py      research on recorded snapshots (edge distribution, basis, AR(1) half-life)
 scripts/mm_research.py  walk-forward MM parameter search, out-of-sample test, robustness
+scripts/stream_analyze.py  arb-episode persistence (Kaplan–Meier), who opens/closes each arb
+scripts/validate_stream.py checks streamed books against REST snapshots
 ```
 
 ## Quick start
@@ -195,11 +204,36 @@ python -m esports_arb -v mm-paper --minutes 120           # paper-trade on live 
 python -m esports_arb -v mm-live --confirm-live ...       # your own Kalshi API key; see docs
 ```
 
+## Part 3: streaming (millisecond view)
+
+`python -m esports_arb stream` keeps live order books over WebSockets. It
+always streams Polymarket. It streams Kalshi when you set an API key, and
+otherwise polls Kalshi's top of book every second. Every book change
+re-checks only the affected match (about 33 µs per check), and each arb is
+logged as an **episode** with a millisecond lifetime.
+
+![arb persistence](docs/stream_persistence.png)
+
+Results from 45 minutes across 108 matches:
+
+- **Total:** 129 episodes, each profitable after fees.
+- **Lifetimes:** median 0.6s, and 97% were gone within 60s. A
+  once-a-minute poller therefore never sees most arbs.
+- **In-play episodes (121):** nearly all were opened by a Polymarket update.
+  Their lifetimes cluster at the Kalshi poll interval, so most are stale
+  quotes rather than tradable edge.
+- **Pre-match episodes (8):** rare, a few contracts each, and some lasted
+  minutes.
+
+The book checks, method and caveats are in
+**[docs/STREAMING.md](docs/STREAMING.md)**. The market maker can use the
+same feed (`mm-paper --stream`) to requote whenever a book moves.
+
 ## Limitations and next steps
 
-* Polling REST, not streaming. The next step is Kalshi and Polymarket
-  WebSockets, which would cut latency and make persistence measurements much
-  finer-grained.
+* Kalshi's websocket needs an API key. Without one, the stream polls Kalshi's
+  top of book every second, so arb lifetimes near 1s are bounded by that
+  poll (see [docs/STREAMING.md](docs/STREAMING.md)).
 * The arb scanner models taker-taker trades only. The market maker (part 2)
   quotes on one venue, and does not yet hedge fills on a second venue.
 * Match-winner markets only. Map/game winners and totals need a careful

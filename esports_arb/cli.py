@@ -5,11 +5,12 @@
     python -m esports_arb scan --cross-only --json out.json
     python -m esports_arb record --interval 60 --iterations 30 --out data/snapshots.csv
     python -m esports_arb near-misses                # closest-to-arb pairs right now
+    python -m esports_arb stream --minutes 30 --out data/stream/episodes.jsonl   # websockets
 
   market making (Kalshi maker, Polymarket fair value):
     python -m esports_arb mm-data --days 21 --out data/mm/dataset.json.gz
     python -m esports_arb mm-backtest --data data/mm/dataset.json.gz
-    python -m esports_arb mm-paper -g cs2,lol --minutes 60
+    python -m esports_arb mm-paper -g cs2,lol --minutes 60 --stream
     python -m esports_arb mm-live -g cs2 --max-exposure 20 --max-loss 10 --confirm-live
 """
 from __future__ import annotations
@@ -106,6 +107,18 @@ def cmd_record(args):
             time.sleep(max(0, args.interval - (time.time() - t0)))
 
 
+def cmd_stream(args):
+    import asyncio
+    from .streaming.hub import StreamHub, kalshi_signer_from_env
+    if args.out:
+        os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    signer = None if args.no_kalshi_ws else kalshi_signer_from_env()
+    hub = StreamHub(_games(args.games), min_edge=args.min_edge, out=args.out, kalshi_signer=signer,
+                    poll_interval=args.poll_interval, report_s=args.report_every,
+                    cross_only=not args.include_same_venue)
+    print(json.dumps(asyncio.run(hub.run(args.minutes)), indent=2))
+
+
 def _mm_params(args):
     from .mm.quoting import QuoteParams
     return QuoteParams(half_spread=args.half_spread, size=args.size, max_exposure=args.max_exposure,
@@ -140,8 +153,12 @@ def cmd_mm_run(args, live: bool):
         broker = KalshiBroker(client)
     else:
         broker = PaperBroker()
+    feed = None
+    if args.stream:
+        from .streaming.feed import StreamFeed
+        feed = StreamFeed(poll_interval=args.poll_interval)
     eng = Engine(broker, _mm_params(args), _games(args.games), max_total_exposure=args.max_total,
-                 max_loss=args.max_loss, interval=args.interval, log_path=args.log)
+                 max_loss=args.max_loss, interval=args.interval, log_path=args.log, feed=feed)
     print(json.dumps(eng.run(args.minutes), indent=2))
 
 
@@ -187,6 +204,18 @@ def main(argv=None):
         sp.add_argument("--stop-before", type=float, default=120.0, help="stop quoting N minutes before start")
         sp.add_argument("--start-hours", type=float, default=12.0)
 
+    st = sub.add_parser("stream", help="real-time arb detection over websockets; logs arb episodes")
+    st.add_argument("-g", "--games", default=",".join(DEFAULT_GAMES))
+    st.add_argument("--minutes", type=float, default=30)
+    st.add_argument("--min-edge", type=float, default=0.0)
+    st.add_argument("--out", default="data/stream/episodes.jsonl")
+    st.add_argument("--poll-interval", type=float, default=1.0,
+                    help="Kalshi REST poll seconds when no KALSHI_KEY_ID is set")
+    st.add_argument("--no-kalshi-ws", action="store_true", help="force REST polling for Kalshi")
+    st.add_argument("--include-same-venue", action="store_true")
+    st.add_argument("--report-every", type=float, default=60)
+    st.set_defaults(func=cmd_stream)
+
     d = sub.add_parser("mm-data", help="download settled matches for the MM backtest")
     mm_common(d)
     d.add_argument("--days", type=float, default=21)
@@ -206,6 +235,10 @@ def main(argv=None):
         r2.add_argument("--max-total", type=float, default=100, help="total |exposure| cap, contracts")
         r2.add_argument("--max-loss", type=float, default=25, help="halt if marked P&L < -this ($)")
         r2.add_argument("--log", default=f"data/mm/{name}.jsonl")
+        r2.add_argument("--stream", action="store_true",
+                        help="websocket market data, requote on every book change (min 1s apart)")
+        r2.add_argument("--poll-interval", type=float, default=1.0,
+                        help="Kalshi REST poll seconds when no API key is set (with --stream)")
         if live:
             r2.add_argument("--confirm-live", action="store_true")
         r2.set_defaults(func=(lambda a, _l=live: cmd_mm_run(a, _l)))

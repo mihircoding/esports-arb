@@ -1,0 +1,46 @@
+feed status at end: [15:39:08] 108 matches | pm 288.2 msg/s (216 books) | kalshi[rest-poll 1s] 1.9 upd/s (216 books) | open arbs 1 | closed 128 | eval 33 µs
+
+== ALL ==
+episodes: 129 (128 closed, 1 still open at shutdown) across 9 matches
+closed-episode duration (ms): p10=73, p25=85, p50=627, p75=1,080, p90=5,096
+Kaplan-Meier median lifetime (incl. censored): 0.6 s
+  share of closed episodes shorter than    1s: 68.0%
+  share of closed episodes shorter than    5s: 89.8%
+  share of closed episodes shorter than   60s: 96.9%
+opened by an update from: polymarket=119, kalshi=10
+closed by an update from: polymarket=69, kalshi=59
+peak edge per $1: median 0.34% | p90 2.06%
+peak executable size: median 10 | p90 90 contracts
+peak $ profit: median 0.04 | sum over episodes 41.63
+by game: cs2=87, lol=32, dota2=9, rl=1
+leg combos: kalshi/NO + polymarket=50, polymarket + kalshi/YES=33, polymarket + kalshi/NO=26, kalshi/YES + polymarket=20
+
+== PRE-MATCH ==
+episodes: 8 (7 closed, 1 still open at shutdown) across 3 matches
+closed-episode duration (ms): p10=55, p25=84, p50=1,460, p75=40,777, p90=138,553
+Kaplan-Meier median lifetime (incl. censored): 1.5 s
+  share of closed episodes shorter than    1s: 42.9%
+  share of closed episodes shorter than    5s: 57.1%
+  share of closed episodes shorter than   60s: 71.4%
+opened by an update from: polymarket=6, kalshi=2
+closed by an update from: polymarket=6, kalshi=1
+peak edge per $1: median 0.12% | p90 2.83%
+peak executable size: median 7 | p90 8 contracts
+peak $ profit: median 0.01 | sum over episodes 0.27
+by game: lol=6, cs2=1, rl=1
+leg combos: polymarket + kalshi/YES=6, polymarket + kalshi/NO=2
+
+== IN-PLAY ==
+episodes: 121 (121 closed, 0 still open at shutdown) across 6 matches
+closed-episode duration (ms): p10=74, p25=85, p50=625, p75=1,068, p90=3,444
+Kaplan-Meier median lifetime (incl. censored): 0.6 s
+  share of closed episodes shorter than    1s: 69.4%
+  share of closed episodes shorter than    5s: 91.7%
+  share of closed episodes shorter than   60s: 98.3%
+opened by an update from: polymarket=113, kalshi=8
+closed by an update from: polymarket=63, kalshi=58
+peak edge per $1: median 0.34% | p90 1.99%
+peak executable size: median 10 | p90 91 contracts
+peak $ profit: median 0.04 | sum over episodes 41.36
+by game: cs2=86, lol=26, dota2=9
+leg combos: kalshi/NO + polymarket=50, polymarket + kalshi/YES=27, polymarket + kalshi/NO=24, kalshi/YES + polymarket=20

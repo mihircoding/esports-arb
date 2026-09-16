@@ -120,7 +120,8 @@ until 5 minutes before start; per contract):
    is thin (2,501 contracts filled in the whole test period). Per-game
    results are noisy: LoL and Dota 2 lost money on the test set.
 4. **Speed matters.** Moving from 60s to 10-minute latency wipes out the
-   edge, so run the live loop with a short `--interval`.
+   edge, so run the live loop with `--stream` (see
+   [STREAMING.md](STREAMING.md)).
 
 ## Live paper trading (2026-09-15)
 
@@ -138,6 +139,7 @@ the strategy over days of paper trading, not hours.
 ```bash
 # paper trading: live Kalshi + Polymarket data, simulated fills from the real Kalshi tape
 python -m esports_arb -v mm-paper --minutes 120
+python -m esports_arb -v mm-paper --minutes 120 --stream   # websocket data, requote on every book change
 
 # real money (your own Kalshi API key; small limits; post-only orders)
 export KALSHI_KEY_ID=...

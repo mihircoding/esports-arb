@@ -193,8 +193,9 @@ def pm_mid(books: Dict[str, list], tok_a: str, tok_b: str) -> Optional[float]:
 class Engine:
     def __init__(self, broker, params: QuoteParams, games: List[str], max_total_exposure: float = 100.0,
                  max_loss: float = 25.0, interval: float = 20.0, rediscover_s: float = 300.0,
-                 log_path: Optional[str] = None, stop_file: str = "STOP"):
+                 log_path: Optional[str] = None, stop_file: str = "STOP", feed=None):
         self.b, self.p, self.games = broker, params, games
+        self.feed = feed
         self.max_total, self.max_loss = max_total_exposure, max_loss
         self.interval, self.rediscover_s = interval, rediscover_s
         self.events: Dict[str, LiveEvent] = {}
@@ -203,6 +204,8 @@ class Engine:
         self.log_path, self.stop_file = log_path, stop_file
         self._last_discover = 0.0
         self.halted = False
+        self.min_requote_s = 1.0
+        self.cycles = 0
 
     # discovery -----------------------------------------------------------
     def discover(self) -> None:
@@ -230,11 +233,14 @@ class Engine:
             self.events[ev] = le
             for i, t in enumerate(tickers):
                 self.by_ticker[t] = (le, i)
+            if self.feed is not None:
+                self.feed.subscribe(le.pm_tokens, tickers)
         self._last_discover = time.time()
         log.info("tracking %d events on both venues", len(self.events))
 
     # one cycle -----------------------------------------------------------
     def cycle(self) -> None:
+        self.cycles += 1
         if time.time() - self._last_discover > self.rediscover_s:
             self.discover()
         now = datetime.now(timezone.utc)
@@ -242,30 +248,15 @@ class Engine:
                   if 0 < (e.start - now).total_seconds() / 60 - self.p.stop_before_min
                   and (e.start - now).total_seconds() / 3600 < self.p.start_hours]
 
-        # fair values from one batched Polymarket book request
-        from ..http import post_json
-        from ..connectors.polymarket import CLOB, parse_book
-        toks = [t for e in active for t in e.pm_tokens]
-        books = {}
-        for i in range(0, len(toks), 40):
-            try:
-                for b in post_json(f"{CLOB}/books", [{"token_id": t} for t in toks[i:i + 40]]):
-                    books[b["asset_id"]] = parse_book(b)
-            except RuntimeError:
-                pass
+        books = self._pm_books([t for e in active for t in e.pm_tokens])
 
         desired: Dict[Tuple[str, str], Tuple[float, float]] = {}
         for e in active:
             ref_a = pm_mid(books, *e.pm_tokens)
             for m, ticker in enumerate(e.tickers):
-                try:
-                    ob = get_json(f"{KBASE}/markets/{ticker}/orderbook", pause=0.05).get("orderbook_fp", {})
-                except RuntimeError:
+                kb, ka, ok = self._kalshi_bbo(ticker)
+                if not ok:
                     continue
-                yes_bids = [float(p) for p, s in ob.get("yes_dollars") or [] if float(s) > 0]
-                no_bids = [float(p) for p, s in ob.get("no_dollars") or [] if float(s) > 0]
-                kb = max(yes_bids) if yes_bids else None
-                ka = round(1 - max(no_bids), 4) if no_bids else None
                 # don't count our own resting orders as the market
                 ref = None if ref_a is None else (ref_a if m == 0 else 1 - ref_a)
                 fair = blend_fair(ref, kb, ka, self.p.ref_weight)
@@ -286,6 +277,34 @@ class Engine:
         self._reconcile(desired)
         self._apply_fills()
         self._risk_checks()
+
+    # market data: websocket feed when available, REST otherwise ------------
+    def _pm_books(self, toks: List[str]) -> Dict[str, list]:
+        if self.feed is not None:
+            return {t: self.feed.pm_asks(t) for t in toks}
+        from ..http import post_json
+        from ..connectors.polymarket import CLOB, parse_book
+        books = {}
+        for i in range(0, len(toks), 40):
+            try:
+                for b in post_json(f"{CLOB}/books", [{"token_id": t} for t in toks[i:i + 40]]):
+                    books[b["asset_id"]] = parse_book(b)
+            except RuntimeError:
+                pass
+        return books
+
+    def _kalshi_bbo(self, ticker: str):
+        if self.feed is not None:
+            return self.feed.kalshi_bbo(ticker)
+        try:
+            ob = get_json(f"{KBASE}/markets/{ticker}/orderbook", pause=0.05).get("orderbook_fp", {})
+        except RuntimeError:
+            return None, None, False
+        yes_bids = [float(p) for p, s in ob.get("yes_dollars") or [] if float(s) > 0]
+        no_bids = [float(p) for p, s in ob.get("no_dollars") or [] if float(s) > 0]
+        kb = max(yes_bids) if yes_bids else None
+        ka = round(1 - max(no_bids), 4) if no_bids else None
+        return kb, ka, True
 
     def _reconcile(self, desired) -> None:
         live = {k: self.b.orders.get(oid) for k, oid in self.working.items()}
@@ -342,20 +361,40 @@ class Engine:
         stop = {"flag": False}
         signal.signal(signal.SIGINT, lambda *a: stop.update(flag=True))
         signal.signal(signal.SIGTERM, lambda *a: stop.update(flag=True))
+        if self.feed is not None:
+            self.feed.start()
         self.discover()
+        if self.feed is not None:
+            time.sleep(3)  # let the first snapshots arrive
+        last_cycle, last_log = 0.0, 0.0
         try:
             while time.time() < end and not self.halted and not stop["flag"]:
                 t = time.time()
+                if self.feed is not None:
+                    # event-driven: requote when a book moved, at most every `min_requote_s`,
+                    # and at least every `interval` (fills / risk checks)
+                    changed = self.feed.drain()
+                    if not changed and t - last_cycle < self.interval:
+                        time.sleep(0.1)
+                        continue
+                    if t - last_cycle < self.min_requote_s:
+                        time.sleep(self.min_requote_s - (t - last_cycle))
                 try:
                     self.cycle()
                 except Exception as exc:  # never leave orders behind because of a bug
                     log.exception("cycle error: %s", exc)
                     self.halted = True
                     break
-                log.info("cycle: %d working orders | exposure %.0f | marked P&L $%.2f",
-                         len(self.working), self._total_exposure(), self.marked_pnl())
-                time.sleep(max(0.0, self.interval - (time.time() - t)))
+                last_cycle = time.time()
+                if last_cycle - last_log > 30 or self.feed is None:
+                    last_log = last_cycle
+                    log.info("cycle: %d working orders | exposure %.0f | marked P&L $%.2f",
+                             len(self.working), self._total_exposure(), self.marked_pnl())
+                if self.feed is None:
+                    time.sleep(max(0.0, self.interval - (time.time() - t)))
         finally:
+            if self.feed is not None:
+                self.feed.stop()
             self.b.cancel_all()
             self.working.clear()
             self._apply_fills()
@@ -368,6 +407,8 @@ class Engine:
                 (1 if f.side == "buy" else -1) * f.qty * (f.fair - f.price)
                 for e in self.events.values() for f in e.book.fills),
             "open_positions": {e.event: e.book.pos for e in self.events.values() if any(e.book.pos)},
+            "requote_cycles": self.cycles,
+            "market_data": "websocket" if self.feed is not None else "rest",
         }
         self._log({"type": "summary", **summary})
         return summary

@@ -131,6 +131,35 @@ def cmd_series_data(args):
     print(f"saved {len(d)} settled BO3s -> {args.out}")
 
 
+def cmd_alpha_data(args):
+    from .alpha.data import build
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    d = build(_games(args.games), days=args.days, hours=args.hours, out=args.out)
+    print(f"saved {len(d)} settled matches -> {args.out}")
+
+
+def _alpha_params(args):
+    from .alpha.backtest import Params
+    return Params(rho=args.rho, theta=args.theta, half_spread=args.half_spread,
+                  max_anchor_spread=args.anchor_spread, stop_min=args.stop_before)
+
+
+def cmd_alpha_signals(args):
+    from .alpha.signals import format_signals, signals
+    print(format_signals(signals(_games(args.games), _alpha_params(args), include_quotes=args.quotes)))
+
+
+def cmd_alpha_paper(args):
+    from .alpha.signals import paper
+    n = paper(_games(args.games), _alpha_params(args), args.minutes, args.every, args.log)
+    print(f"logged {n} new paper signals -> {args.log}")
+
+
+def cmd_alpha_settle(args):
+    from .alpha.signals import settle
+    print(settle(args.log))
+
+
 def cmd_stream(args):
     import asyncio
     from .streaming.hub import StreamHub, kalshi_signer_from_env
@@ -243,6 +272,35 @@ def main(argv=None):
     sd.add_argument("--no-trades", action="store_true", help="skip public trade download (execution check)")
     sd.add_argument("--trades-only", action="store_true", help="only add trades to an existing file")
     sd.set_defaults(func=cmd_series_data)
+
+    ad = sub.add_parser("alpha-data", help="settled Kalshi match/map/total markets with candles + trades")
+    ad.add_argument("-g", "--games", default="cs2,lol,val,dota2")
+    ad.add_argument("--days", type=float, default=21)
+    ad.add_argument("--hours", type=float, default=12)
+    ad.add_argument("--out", default="data/alpha/kalshi_series.json.gz")
+    ad.set_defaults(func=cmd_alpha_data)
+
+    def alpha_common(sp):
+        sp.add_argument("-g", "--games", default="cs2,lol,val,dota2")
+        sp.add_argument("--rho", type=float, default=0.1, help="map-to-map correlation (fitted in research)")
+        sp.add_argument("--theta", type=float, default=0.03, help="min edge after fee to take")
+        sp.add_argument("--half-spread", type=float, default=0.05, help="suggested maker half-spread")
+        sp.add_argument("--anchor-spread", type=float, default=0.06, help="max match-market spread to trust")
+        sp.add_argument("--stop-before", type=float, default=5.0, help="minutes before start")
+        sp.add_argument("--log", default="data/alpha/paper.jsonl")
+
+    a1 = sub.add_parser("alpha-signals", help="+EV Kalshi map/total bets priced off the match market")
+    alpha_common(a1)
+    a1.add_argument("--quotes", action="store_true", help="also print suggested resting quotes")
+    a1.set_defaults(func=cmd_alpha_signals)
+    a2 = sub.add_parser("alpha-paper", help="forward paper test: log first signal per contract")
+    alpha_common(a2)
+    a2.add_argument("--minutes", type=float, default=240)
+    a2.add_argument("--every", type=float, default=120)
+    a2.set_defaults(func=cmd_alpha_paper)
+    a3 = sub.add_parser("alpha-settle", help="score the paper log (settled P&L, open CLV)")
+    alpha_common(a3)
+    a3.set_defaults(func=cmd_alpha_settle)
 
     st = sub.add_parser("stream", help="real-time arb detection over websockets; logs arb episodes")
     st.add_argument("-g", "--games", default=",".join(DEFAULT_GAMES))

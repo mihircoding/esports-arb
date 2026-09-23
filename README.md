@@ -1,5 +1,7 @@
 # esports-arb
 
+**[Project page with the results →](https://mihircoding.github.io/esports-arb/)**
+
 A fee-aware, depth-aware **arbitrage scanner for esports match-winner markets**.
 It covers League of Legends, CS2, Valorant, Rainbow Six Siege, Rocket League,
 Overwatch, Dota 2 and Call of Duty, on these venues:
@@ -260,6 +262,28 @@ Details: **[docs/SERIES.md](docs/SERIES.md)**.
 python -m esports_arb series-scan
 python -m esports_arb series-data --days 45 && python scripts/series_research.py data/series/history.json.gz
 ```
+
+## In progress: pricing Kalshi's map and totals markets
+
+Part 4 found that handicap and totals contracts are mispriced but rarely
+tradable on Polymarket. `esports_arb/alpha/` moves that idea to Kalshi, which
+is US-accessible, charges no maker fee on esports and publishes per-minute
+historical best bid/ask, so the backtest can trade at prices that really
+existed. A beta-binomial model turns the match price into fair values for every
+map-winner and total-maps contract, with the map-to-map correlation fitted on
+past matches.
+
+```bash
+python -m esports_arb alpha-data --days 21        # settled matches + candles + trade tape
+python scripts/alpha_research.py data/alpha/kalshi_series.json.gz
+python -m esports_arb alpha-signals               # what is +EV right now
+python -m esports_arb alpha-paper --minutes 240   # forward paper log
+python -m esports_arb alpha-settle                # score it
+```
+
+The model and its inversion are unit-tested, and the live signal command runs.
+The backtest has not been run on a full dataset yet, so there is **no measured
+edge to report for this part**.
 
 ## Limitations and next steps
 

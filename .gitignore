@@ -12,3 +12,7 @@ data/mm/*.log
 data/mm/*.jsonl
 data/stream/*.log
 data/series/*.log
+data/alpha/*.log
+data/alpha/*.out
+data/alpha/paper*.jsonl
+data/alpha/*.json.gz

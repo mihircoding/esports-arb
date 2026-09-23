@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esports Arb — Prediction-Market Arbitrage and Market Making</title>
+<meta name="description" content="Cross-venue arbitrage, market making and series-structure pricing across Kalshi and Polymarket esports markets, tested on real order books, trade tapes and settlements.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfbfa; --surface:#fff; --line:#e5e4df; --line2:#d0cfc8;
+  --ink:#16161a; --ink2:#55554f; --ink3:#8b8a83;
+  --blue:#2a6fd6; --green:#12946a; --red:#d0413f; --amber:#b3760a;
+  --blue-bg:#eaf2fc; --green-bg:#e6f4ee; --red-bg:#fcecec; --amber-bg:#fdf3e3;
+  --radius:10px; --max:1120px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#141414;--surface:#1c1c1b;--line:#2e2e2c;--line2:#3d3d3a;
+  --ink:#f2f2ef;--ink2:#b8b7b0;--ink3:#87867f;
+  --blue:#5b9bf0;--green:#3fbf90;--red:#ef6a68;--amber:#dfa03c;
+  --blue-bg:#17263a;--green-bg:#122a22;--red-bg:#331a1a;--amber-bg:#332715;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.88em}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+h1{font-size:38px;line-height:1.15;font-weight:600;letter-spacing:-.02em;margin:0 0 12px}
+h2{font-size:25px;font-weight:600;letter-spacing:-.015em;margin:0 0 6px}
+h3{font-size:17px;font-weight:600;margin:0 0 8px}
+p{margin:0 0 14px;color:var(--ink2)}
+section{padding:46px 0;border-top:1px solid var(--line)}
+.lede{font-size:18px;color:var(--ink2);max-width:74ch}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
+header{padding:60px 0 46px}
+.tagline{display:inline-block;font-size:12.5px;font-weight:500;padding:4px 11px;border-radius:99px;
+  background:var(--blue-bg);color:var(--blue);margin-bottom:18px}
+.links{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:8px;
+  border:1px solid var(--line2);color:var(--ink);font-size:14px;font-weight:500;background:var(--surface)}
+.btn:hover{border-color:var(--ink3);text-decoration:none}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:26px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px 17px}
+.card .k{font-size:12px;color:var(--ink3);margin-bottom:5px;font-weight:500}
+.card .v{font-size:29px;font-weight:600;letter-spacing:-.02em;line-height:1.05}
+.card .s{font-size:12.5px;color:var(--ink3);margin-top:5px}
+.v.red{color:var(--red)} .v.green{color:var(--green)} .v.blue{color:var(--blue)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.grid2>*{min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+.cap{font-size:13px;color:var(--ink3);line-height:1.6;margin-top:10px}
+.note{border-left:3px solid var(--amber);background:var(--amber-bg);padding:13px 16px;border-radius:0 8px 8px 0;margin:18px 0}
+.note.blue{border-color:var(--blue);background:var(--blue-bg)}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:6px 0 4px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);font-weight:600}
+td.num,th.num{text-align:right;font-family:"JetBrains Mono",ui-monospace,monospace}
+ul{margin:0 0 14px;padding-left:20px;color:var(--ink2)}
+li{margin-bottom:7px}
+img.plot{width:100%;height:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+footer{padding:40px 0 70px;color:var(--ink3);font-size:14px;border-top:1px solid var(--line)}
+@media(max-width:760px){.grid2{grid-template-columns:1fr;gap:18px}h1{font-size:30px}}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="tagline">Kalshi &middot; Polymarket &middot; esports</div>
+  <h1>Esports Arb</h1>
+  <p class="lede">Four studies of the same market: cross-venue arbitrage, market making, how fast mispricings disappear, and whether the match, map, handicap and totals markets agree with each other. Every result comes from real order books, the public trade tape and actual settlements.</p>
+  <div class="links">
+    <a class="btn primary" href="https://github.com/mihircoding/esports-arb">Source on GitHub</a>
+    <a class="btn" href="https://github.com/mihircoding/esports-arb/blob/main/docs/MARKET_MAKING.md">Market making</a>
+    <a class="btn" href="https://github.com/mihircoding/esports-arb/blob/main/docs/STREAMING.md">Streaming</a>
+    <a class="btn" href="https://github.com/mihircoding/esports-arb/blob/main/docs/SERIES.md">Series pricing</a>
+  </div>
+</header>
+
+<section class="wrap">
+  <div class="eyebrow">Method</div>
+  <h2>What is being priced</h2>
+  <p>A head-to-head esports match has two outcomes, so a contract paying $1 if team A wins and a contract paying $1 if team B wins together pay exactly $1. Everything here follows from that, plus each venue's fee schedule.</p>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Venues</h3>
+      <table>
+        <tr><th>Venue</th><th>Data</th><th>Taker fee</th></tr>
+        <tr><td>Kalshi</td><td>REST + websocket books, public trade tape, 1-min candles</td><td class="num">7%&nbsp;&times;&nbsp;p(1&minus;p)</td></tr>
+        <tr><td>Polymarket</td><td>Gamma + CLOB websocket books</td><td class="num">5%&nbsp;&times;&nbsp;p(1&minus;p)</td></tr>
+        <tr><td>Sportsbooks</td><td>OddsPapi aggregator, or pasted odds</td><td class="num">in the odds</td></tr>
+      </table>
+      <p class="cap">Both exchange fees scale with the variance of the payoff, so they peak at 50c and shrink at the extremes. A pair of 50c legs needs about 3c of mispricing to clear fees.</p>
+    </div>
+    <div class="panel">
+      <h3>Matching the same match across venues</h3>
+      <ul>
+        <li>Team names are folded (generic tokens dropped, alias table, token-subset rule) and scored by similarity.</li>
+        <li>"Spirit" and "Spirit Academy" score low on purpose: a false match would create a fake arbitrage.</li>
+        <li>Start times must agree within six hours; Kalshi encodes its start in the event ticker, in US Eastern.</li>
+        <li>Sizing walks both order books and stops when the marginal pair stops paying after fees.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Result — cross-venue arbitrage</div>
+  <h2>Fees remove about 80% of it</h2>
+  <p>45 snapshots a minute apart, 87 matches quoted on both Kalshi and Polymarket.</p>
+  <div class="cards">
+    <div class="card"><div class="k">Gross arbitrage</div><div class="v">12.9%</div><div class="s">of match-snapshots, before fees</div></div>
+    <div class="card"><div class="k">After fees</div><div class="v red">2.8%</div><div class="s">7 matches of 87</div></div>
+    <div class="card"><div class="k">Typical size</div><div class="v">1</div><div class="s">contract at the top of book</div></div>
+    <div class="card"><div class="k">Venue disagreement</div><div class="v">1.9pp</div><div class="s">halves in about 16 minutes</div></div>
+  </div>
+  <img class="plot" src="edge_distribution.png" alt="Distribution of the best cross-venue edge before and after fees, and a scatter of Kalshi against Polymarket probabilities">
+  <p class="cap">Left: the best cross-venue pair per match-snapshot, before and after fees. Right: the two venues agree closely on who wins, and differ mostly on thin markets.</p>
+  <p>The arbitrages that survive fees sit at the top of very thin books — usually one contract, below Polymarket's five-share minimum. Most net-positive pairs used Kalshi's NO contract on the opponent rather than YES on the team, so a scanner that only checks YES prices misses them.</p>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Result — market making</div>
+  <h2>Quoting works better than taking, but only away from the start</h2>
+  <p>Kalshi charges no maker fee on esports, so resting orders that fill cost nothing. The maker quotes around a fair value that blends Kalshi's and Polymarket's mids, skews against inventory, and never trades in play. Settings were chosen on 588 matches and tested once on the next 589, replayed against Kalshi's real trade tape.</p>
+  <div class="cards">
+    <div class="card"><div class="k">Out-of-sample P&amp;L</div><div class="v green">+$70</div><div class="s">589 matches, 5-lot quotes</div></div>
+    <div class="card"><div class="k">Per contract</div><div class="v">+2.8c</div><div class="s">t = 1.12, not significant</div></div>
+    <div class="card"><div class="k">Spread earned</div><div class="v">+8.5c</div><div class="s">vs fair value at the fill</div></div>
+    <div class="card"><div class="k">Lost to informed flow</div><div class="v red">&minus;5.7c</div><div class="s">drift from fill to settlement</div></div>
+  </div>
+  <img class="plot" src="mm_backtest.png" alt="Cumulative market-making P&L across 1,177 matches, and the per-match split between spread captured and drift to settlement">
+  <p class="cap">Left: cumulative P&amp;L, with the out-of-sample half to the right of the dashed line. Right: each match's spread capture against its drift to settlement.</p>
+  <table>
+    <tr><th>Minutes before start</th><th class="num">Spread earned</th><th class="num">Adverse selection</th><th class="num">Net</th></tr>
+    <tr><td>360&ndash;720</td><td class="num">+8.5c</td><td class="num">&minus;5.6c</td><td class="num">+2.9c</td></tr>
+    <tr><td>120&ndash;360</td><td class="num">+8.4c</td><td class="num">&minus;5.7c</td><td class="num">+2.8c</td></tr>
+    <tr><td>30&ndash;120</td><td class="num">+8.4c</td><td class="num">&minus;14.6c</td><td class="num">&minus;6.2c</td></tr>
+    <tr><td>0&ndash;30</td><td class="num">+8.5c</td><td class="num">&minus;10.3c</td><td class="num">&minus;1.8c</td></tr>
+  </table>
+  <p>The spread earned is the same all day; what changes is who is trading. Inside two hours of the start, the flow knows something — lineups, stand-ins, late news — and takes roughly twice the spread back. Not quoting after T&minus;120 minutes was the single largest improvement in the study.</p>
+  <div class="note">At 60-second latency the strategy makes 2.8c per contract. At 10 minutes it makes nothing, so the live loop runs on websockets.</div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Result — how long mispricings last</div>
+  <h2>Most are gone inside a second</h2>
+  <p>Live order books over websockets, re-checking only the match whose book changed — about 33 microseconds per update, keeping up with 300&ndash;440 Polymarket messages a second. Each arbitrage is logged as an episode with a millisecond lifetime.</p>
+  <div class="cards">
+    <div class="card"><div class="k">Episodes</div><div class="v">129</div><div class="s">45 minutes, 108 matches</div></div>
+    <div class="card"><div class="k">Median lifetime</div><div class="v">0.6s</div><div class="s">Kaplan&ndash;Meier</div></div>
+    <div class="card"><div class="k">Gone within a minute</div><div class="v">97%</div><div class="s">invisible to minute polling</div></div>
+    <div class="card"><div class="k">Opened by Polymarket</div><div class="v">119</div><div class="s">of 129 episodes</div></div>
+  </div>
+  <img class="plot" src="stream_persistence.png" alt="Kaplan-Meier survival curve of arbitrage episodes and a histogram of their durations">
+  <p class="cap">Left: share of arbitrages still open over time, pre-match against in-play. Right: how long the closed ones lasted.</p>
+  <p>Durations cluster in two groups. The one-second group matches the Kalshi refresh interval during live matches: Polymarket reprices first and the gap lasts until Kalshi is polled again, which is stale-quote latency rather than tradable edge. Pre-match episodes are rarer, a few contracts deep, and some last minutes. Polymarket moves first in nearly every case, which is why it anchors the maker's fair value.</p>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Result — series structure</div>
+  <h2>The map, handicap and totals markets do not agree with the match market</h2>
+  <p>A best-of-three ends in one of six map sequences, so every match, map, handicap and totals contract is a payoff vector over those six. A linear program searches both venues for the cheapest basket that pays at least $1 in every sequence; under $1 after fees is an arbitrage rather than a forecast.</p>
+  <div class="cards">
+    <div class="card"><div class="k">Live basket found</div><div class="v green">+$92</div><div class="s">$1,407 cost, pays $1,500 always</div></div>
+    <div class="card"><div class="k">2-0 results</div><div class="v">59.8%</div><div class="s">vs 54.7% if maps were independent</div></div>
+    <div class="card"><div class="k">Handicap market</div><div class="v red">worse</div><div class="s">than multiplying the two map prices</div></div>
+    <div class="card"><div class="k">Signals fillable</div><div class="v">8 of 107</div><div class="s">the rest never traded</div></div>
+  </div>
+  <img class="plot" src="series_study.png" alt="Match price against the price implied by map prices, and calibration curves for both">
+  <p class="cap">2,273 settled best-of-threes, priced 30 minutes before the start. The match market is the best-calibrated contract on the board.</p>
+  <p>The Dota 2 basket above priced "Dawn Bulls 2-0" at about 50% while pricing "Dawn Bulls win at all" at about the same, which implies a 2-1 win cannot happen. Betting the handicap mispricing returned +22.6c per bet out of sample at midpoint prices, but only 8 of 107 signals had a real trade on the needed side before the match: those books are mostly empty. That points at resting limit orders rather than taking.</p>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Engineering</div>
+  <h2>What is in the repo</h2>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Modules</h3>
+      <ul>
+        <li><span class="mono">connectors/</span> — Kalshi, Polymarket, sportsbook odds; ask ladders rebuilt from the opposite side's bids.</li>
+        <li><span class="mono">arb.py</span> — fee-aware edge, depth walk, exact fee rounding, cancelled-match P&amp;L.</li>
+        <li><span class="mono">mm/</span> — quoting, inventory, event-driven backtest, paper and live loops with exposure caps and a kill switch.</li>
+        <li><span class="mono">streaming/</span> — L2 books from snapshots and deltas, sequence-gap resync, episode logging.</li>
+        <li><span class="mono">series/</span> — outcome states, the arbitrage LP, settled-match study.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Testing</h3>
+      <ul>
+        <li>79 tests: fee rounding, depth walking, roster-aware name matching, book maintenance from deltas, request signing, LP identities.</li>
+        <li>Streamed books were checked against the venue's own snapshots: 94% matched exactly, and every mismatch was a size at one level right after a trade.</li>
+        <li>Every backtest chooses its settings on an earlier slice of matches and reports the later slice once.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Limitations</div>
+  <h2>Limitations</h2>
+  <ul>
+    <li>Sizes are small. The arbitrages that clear fees are typically one contract deep, and the market maker filled 2,501 contracts in ten days.</li>
+    <li>The market-making edge is +2.8c per contract with t = 1.12. The true edge could be zero.</li>
+    <li>Kalshi's websocket needs an API key, so the streaming study polled Kalshi once a second; in-play episode lifetimes are bounded by that.</li>
+    <li>Polymarket price history is midpoints, not asks, which is why the series study re-checks every signal against real taker prints.</li>
+    <li>A cancelled match settles differently on each venue — 50-50 on Polymarket, "fair value" on Kalshi, void at a sportsbook — so a hedge can pay less than $1. Unknown settlements are counted as zero.</li>
+    <li>Polymarket's international exchange blocks US users. This is research code, not financial advice.</li>
+  </ul>
+</section>
+
+<footer class="wrap">
+  <p>Mihir Konda &middot; <a href="https://github.com/mihircoding/esports-arb">github.com/mihircoding/esports-arb</a> &middot; <a href="https://mihirkondaportfolio.com">mihirkondaportfolio.com</a></p>
+</footer>
+
+</body>
+</html>
